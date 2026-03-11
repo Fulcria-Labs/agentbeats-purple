@@ -66,13 +66,20 @@ async def call_llm(messages: list[dict], system_prompt: str | None = None) -> st
         return response.text
 
     else:
-        # Default: litellm (supports openai, anthropic, google, etc.)
+        # Default: litellm (supports openai, anthropic, google, ollama, etc.)
         from litellm import acompletion
 
         full_messages = messages.copy()
         if system_prompt and not any(m["role"] == "system" for m in full_messages):
             full_messages.insert(0, {"role": "system", "content": system_prompt})
-        resp = await acompletion(model=LLM_MODEL, messages=full_messages, temperature=0.0)
+        kwargs = {"model": LLM_MODEL, "messages": full_messages, "temperature": 0.0}
+        # Support Ollama via api_base
+        api_base = os.environ.get("OLLAMA_API_BASE", os.environ.get("LLM_API_BASE"))
+        if api_base:
+            kwargs["api_base"] = api_base
+        elif LLM_MODEL.startswith("ollama/"):
+            kwargs["api_base"] = "http://localhost:11434"
+        resp = await acompletion(**kwargs)
         return resp.choices[0].message.content
 
 
